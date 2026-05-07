@@ -61,3 +61,7 @@ for (const route of ['student-trace', 'teacher-worksheets', 'teacher-parent-repo
 }
 
 console.log(`Static smoke test passed: ${files.length} JS files checked, seed v${SEED.version} verified.`);
+const radicalSuggestion = AITutor.matchRadical('水');
+if (radicalSuggestion.name !== '水部' || !radicalSuggestion.origin.length) throw new Error('Radical AI auto match failed.');
+const charSuggestion = AITutor.matchCharacter('河', [...SEED.radicals, { id: 'water', key: '水', name: '水部' }], SEED.characters);
+if (charSuggestion.radicalId !== 'water' || !charSuggestion.words.includes('河水')) throw new Error('Character AI auto match failed.');
