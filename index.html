@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 智慧英文單字卡 (GitHub 完美運行版)</title>
+    <title>雙面自定義單字卡 (離線永久穩定版)</title>
     <style>
         :root { --p: #4f46e5; --s: #10b981; --d: #ef4444; }
         body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; padding: 20px; display: flex; justify-content: center; margin: 0; }
@@ -35,56 +35,29 @@
 <div class="container">
     <h2>🗂️ Smart English Flashcards</h2>
     <div class="controls">
-        <input type="text" id="engInput" placeholder="Enter English word..." onkeypress="if(event.key==='Enter') addCardFromUI()">
-        <button class="btn" id="addBtn" onclick="addCardFromUI()">➕ Add</button>
+        <input type="text" id="engInput" placeholder="English word...">
+        <input type="text" id="chInput" placeholder="中文翻譯..." onkeypress="if(event.key==='Enter') addCardFromUI()">
+        <button class="btn" onclick="addCardFromUI()">➕ Add</button>
     </div>
     <div id="cardGrid" class="card-grid"></div>
 </div>
 <script>
-    let timers = {};
     window.onload = loadCards;
 
-    // GitHub 專用：突破伺服器限制的 JSONP 智慧翻譯機制
-    function fetchTranslationJsonp(text, callbackName) {
-        return new Promise((resolve) => {
-            window[callbackName] = function(data) {
-                try {
-                    if (data && data) {
-                        let translated = "";
-                        data.forEach(part => { if (part) translated += part; });
-                        resolve(translated);
-                    }
-                } catch(e) { resolve('請手動輸入中文'); }
-                const node = document.getElementById(callbackName);
-                if (node) node.remove();
-                delete window[callbackName];
-            };
-
-            const script = document.createElement('script');
-            script.id = callbackName;
-            script.src = `https://googleapis.com{encodeURIComponent(text)}&cb=${callbackName}`;
-            script.onerror = function() {
-                resolve('請手動輸入中文');
-                if (script) script.remove();
-                delete window[callbackName];
-            };
-            document.body.appendChild(script);
-        });
-    }
-
-    async function addCardFromUI() {
-        const input = document.getElementById('engInput'), btn = document.getElementById('addBtn');
-        const engText = input.value.trim();
-        if (!engText) return;
-        btn.disabled = true; btn.textContent = '⚡...';
+    function addCardFromUI() {
+        const engInput = document.getElementById('engInput');
+        const chInput = document.getElementById('chInput');
+        const engText = engInput.value.trim();
+        const chText = chInput.value.trim();
         
-        const callbackName = 'googleCB_' + Date.now() + '_' + Math.floor(Math.random() * 100);
-        const chText = await fetchTranslationJsonp(engText, callbackName);
+        if (!engText && !chText) return;
         
         const cardId = 'c_' + Date.now() + '_' + Math.floor(Math.random() * 100);
         createCardDOM(cardId, engText, chText, true);
         
-        input.value = ''; btn.disabled = false; btn.textContent = '➕ Add';
+        engInput.value = '';
+        chInput.value = '';
+        engInput.focus();
         saveCards();
     }
 
@@ -92,13 +65,11 @@
         const grid = document.getElementById('cardGrid'), box = document.createElement('div');
         box.className = 'card-container'; box.dataset.id = id;
         box.onclick = function() { this.classList.toggle('flipped'); };
-        
-        // 核心加固：確保發音按鈕按鈕 🔊 Speak 的 HTML 在渲染時不受到外界 API 干擾而消失
         box.innerHTML = `
             <div class="word-card">
                 <div class="card-front">
-                    <div class="card-label"><span>English</span><span style="font-size:10px;color:#94a3b8" id="st-${id}">已同步</span></div>
-                    <textarea class="eng-text" oninput="handleCardInput('${id}', this.value)" onclick="event.stopPropagation()">${eng}</textarea>
+                    <div class="card-label">English</div>
+                    <textarea class="eng-text" oninput="saveCards()" onclick="event.stopPropagation()">${eng}</textarea>
                     <div class="card-actions">
                         <button class="btn-card btn-speak" onclick="speak(this); event.stopPropagation();">🔊 Speak</button>
                         <button class="btn-card btn-delete" onclick="deleteCard(this); event.stopPropagation();">🗑️</button>
@@ -113,40 +84,13 @@
         if (isTop) { grid.prepend(box); } else { grid.appendChild(box); }
     }
 
-    function handleCardInput(id, text) {
-        const st = document.getElementById(`st-${id}`);
-        if (st) st.textContent = '打字中...';
-        clearTimeout(timers[id]);
-        
-        timers[id] = setTimeout(async () => {
-            const el = document.querySelector(`.card-container[data-id="${id}"]`);
-            if (!el || !text.trim()) { if(st) st.textContent='已同步'; saveCards(); return; }
-            if (st) st.textContent = '🔄...';
-            
-            const callbackName = 'googleCB_' + Date.now() + '_' + Math.floor(Math.random() * 100);
-            const newCh = await fetchTranslationJsonp(text.trim(), callbackName);
-            
-            if (newCh && newCh !== '請手動輸入中文') {
-                const tx = el.querySelector('.ch-text');
-                if (tx) tx.value = newCh;
-            }
-            if (st) st.textContent = '已同步';
-            saveCards();
-        }, 1200);
-    }
-
     function deleteCard(btn) { btn.closest('.card-container').remove(); saveCards(); }
 
-    // 發音防死鎖核心：直接調用系統內置 Speech 模組，不向外部請求音檔，GitHub 上完美發音
     function speak(btn) {
         const txt = btn.closest('.card-container').querySelector('.eng-text').value.trim();
         if ('speechSynthesis' in window && txt) {
-            const ut = new SpeechSynthesisUtterance(txt); 
-            ut.lang = 'en-US';
-            window.speechSynthesis.cancel(); 
-            window.speechSynthesis.speak(ut);
-        } else {
-            alert("您的瀏覽器暫不支援語音發音");
+            const ut = new SpeechSynthesisUtterance(txt); ut.lang = 'en-US';
+            window.speechSynthesis.cancel(); window.speechSynthesis.speak(ut);
         }
     }
 
@@ -154,11 +98,11 @@
         const data = Array.from(document.querySelectorAll('.card-container')).map(c => ({
             id: c.dataset.id, english: c.querySelector('.eng-text').value, chinese: c.querySelector('.ch-text').value
         }));
-        localStorage.setItem('myGitHubCardsFinal', JSON.stringify(data));
+        localStorage.setItem('myGitHubLocalFinal', JSON.stringify(data));
     }
 
     function loadCards() {
-        const data = JSON.parse(localStorage.getItem('myGitHubCardsFinal') || '[]');
+        const data = JSON.parse(localStorage.getItem('myGitHubLocalFinal') || '[]');
         document.getElementById('cardGrid').innerHTML = '';
         if (data.length > 0) {
             data.forEach(c => createCardDOM(c.id || 'c_'+Date.now(), c.english, c.chinese, false));
