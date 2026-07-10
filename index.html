@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>雙面自定義單字卡 (離線永久穩定版)</title>
+    <title>AI Single-Translate Flashcards</title>
     <style>
         :root { --p: #4f46e5; --s: #10b981; --d: #ef4444; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; padding: 20px; display: flex; justify-content: center; margin: 0; }
+        body { font-family: system-ui, sans-serif; background: #f8fafc; padding: 20px; display: flex; justify-content: center; margin: 0; }
         .container { width: 100%; max-width: 1000px; }
         h2 { text-align: center; color: #0f172a; margin-bottom: 20px; font-weight: 700; }
         .controls { display: flex; gap: 10px; margin-bottom: 25px; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
         .controls input { flex: 1; padding: 10px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 15px; outline: none; }
         .controls input:focus { border-color: var(--p); }
-        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; background: var(--p); color: white; transition: background 0.2s; }
-        .btn:hover { background: #4338ca; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; background: var(--p); color: white; }
         .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
         .card-container { perspective: 1000px; cursor: pointer; }
         .word-card { width: 100%; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; position: relative; min-height: 140px; }
@@ -24,40 +23,59 @@
         .card-label { font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 6px; display: flex; justify-content: space-between; user-select: none; }
         textarea { width: 100%; border: none; resize: none; outline: none; background: transparent; font-size: 1.1rem; font-weight: 600; color: #1e293b; font-family: inherit; flex: 1; }
         .card-actions { display: flex; gap: 6px; margin-top: auto; }
-        .btn-card { padding: 6px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
-        .btn-speak { background: #f0fdf4; color: var(--s); transition: background 0.2s; }
-        .btn-speak:hover { background: var(--s); color: white; }
-        .btn-delete { background: #fef2f2; color: var(--d); margin-left: auto; transition: background 0.2s; }
-        .btn-delete:hover { background: var(--d); color: white; }
+        .btn-card { padding: 6px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center; }
+        .btn-speak { background: #f0fdf4; color: var(--s); }
+        .btn-delete { background: #fef2f2; color: var(--d); margin-left: auto; }
     </style>
 </head>
 <body>
 <div class="container">
     <h2>🗂️ Smart English Flashcards</h2>
     <div class="controls">
-        <input type="text" id="engInput" placeholder="English word...">
-        <input type="text" id="chInput" placeholder="中文翻譯..." onkeypress="if(event.key==='Enter') addCardFromUI()">
-        <button class="btn" onclick="addCardFromUI()">➕ Add</button>
+        <input type="text" id="engInput" placeholder="Enter English word..." onkeypress="if(event.key==='Enter') addCardFromUI()">
+        <button class="btn" id="addBtn" onclick="addCardFromUI()">➕ Add</button>
     </div>
     <div id="cardGrid" class="card-grid"></div>
 </div>
 <script>
     window.onload = loadCards;
 
-    function addCardFromUI() {
-        const engInput = document.getElementById('engInput');
-        const chInput = document.getElementById('chInput');
-        const engText = engInput.value.trim();
-        const chText = chInput.value.trim();
+    // 核心 JSONP 翻譯（只在按 Add 時被呼叫一次）
+    function fetchTranslationJsonp(text, callbackName) {
+        return new Promise((resolve) => {
+            window[callbackName] = function(data) {
+                try {
+                    if (data && data) {
+                        let translated = "";
+                        data.forEach(part => { if (part && part) translated += part; });
+                        resolve(translated);
+                    }
+                } catch(e) { resolve(null); }
+                const node = document.getElementById(callbackName);
+                if (node) node.remove();
+                delete window[callbackName];
+            };
+            const script = document.createElement('script');
+            script.id = callbackName;
+            script.src = `https://googleapis.com{encodeURIComponent(text)}&cb=${callbackName}`;
+            script.onerror = function() { resolve(null); if (script) script.remove(); delete window[callbackName]; };
+            document.body.appendChild(script);
+        });
+    }
+
+    async function addCardFromUI() {
+        const input = document.getElementById('engInput'), btn = document.getElementById('addBtn');
+        const engText = input.value.trim();
+        if (!engText) return;
+        btn.disabled = true; btn.textContent = '⚡...';
         
-        if (!engText && !chText) return;
+        const cbName = 'googleCB_' + Date.now() + '_' + Math.floor(Math.random() * 100);
+        let chText = await fetchTranslationJsonp(engText, cbName);
+        if (!chText) chText = '（未自動識別，請手動補充中文）';
         
         const cardId = 'c_' + Date.now() + '_' + Math.floor(Math.random() * 100);
         createCardDOM(cardId, engText, chText, true);
-        
-        engInput.value = '';
-        chInput.value = '';
-        engInput.focus();
+        input.value = ''; btn.disabled = false; btn.textContent = '➕ Add';
         saveCards();
     }
 
@@ -65,6 +83,8 @@
         const grid = document.getElementById('cardGrid'), box = document.createElement('div');
         box.className = 'card-container'; box.dataset.id = id;
         box.onclick = function() { this.classList.toggle('flipped'); };
+        
+        // 核心修改：移除 textarea 的動態 oninput 監聽，正面修改英文時不再重複觸發聯網翻譯
         box.innerHTML = `
             <div class="word-card">
                 <div class="card-front">
@@ -98,11 +118,11 @@
         const data = Array.from(document.querySelectorAll('.card-container')).map(c => ({
             id: c.dataset.id, english: c.querySelector('.eng-text').value, chinese: c.querySelector('.ch-text').value
         }));
-        localStorage.setItem('myGitHubLocalFinal', JSON.stringify(data));
+        localStorage.setItem('myGitHubCardsSingle_v1', JSON.stringify(data));
     }
 
     function loadCards() {
-        const data = JSON.parse(localStorage.getItem('myGitHubLocalFinal') || '[]');
+        const data = JSON.parse(localStorage.getItem('myGitHubCardsSingle_v1') || '[]');
         document.getElementById('cardGrid').innerHTML = '';
         if (data.length > 0) {
             data.forEach(c => createCardDOM(c.id || 'c_'+Date.now(), c.english, c.chinese, false));
