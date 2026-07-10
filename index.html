@@ -543,6 +543,51 @@ async function translateViaLingva(text){
   throw lastErr || new Error('Lingva 全部失敗');
 }
 
+// 離線詞庫：常見單字翻譯失敗時的最後備援（涵蓋小學常見單字）
+const OFFLINE_DICT = {
+  apple:'蘋果', banana:'香蕉', orange:'橘子', grape:'葡萄', strawberry:'草莓',
+  watermelon:'西瓜', mango:'芒果', pear:'梨子', peach:'桃子', lemon:'檸檬',
+  dog:'狗', cat:'貓', bird:'鳥', fish:'魚', rabbit:'兔子', horse:'馬',
+  cow:'牛', pig:'豬', sheep:'羊', duck:'鴨子', chicken:'雞', tiger:'老虎',
+  lion:'獅子', elephant:'大象', monkey:'猴子', bear:'熊', panda:'貓熊',
+  red:'紅色', orange_color:'橘色', yellow:'黃色', green:'綠色', blue:'藍色',
+  purple:'紫色', pink:'粉紅色', black:'黑色', white:'白色', brown:'棕色',
+  gray:'灰色', grey:'灰色',
+  one:'一', two:'二', three:'三', four:'四', five:'五', six:'六', seven:'七',
+  eight:'八', nine:'九', ten:'十',
+  mother:'媽媽', father:'爸爸', mom:'媽媽', dad:'爸爸', sister:'姊妹',
+  brother:'兄弟', grandmother:'奶奶', grandfather:'爺爺', family:'家庭',
+  friend:'朋友', teacher:'老師', student:'學生',
+  school:'學校', book:'書', pen:'筆', pencil:'鉛筆', bag:'書包', desk:'書桌',
+  chair:'椅子', classroom:'教室', homework:'功課',
+  happy:'開心', sad:'難過', angry:'生氣', tired:'疲累', hungry:'肚子餓',
+  thirsty:'口渴', excited:'興奮', scared:'害怕',
+  run:'跑', jump:'跳', walk:'走', eat:'吃', drink:'喝', sleep:'睡覺',
+  play:'玩', read:'讀', write:'寫', sing:'唱歌', dance:'跳舞', swim:'游泳',
+  big:'大的', small:'小的', tall:'高的', short:'矮的／短的', fast:'快的',
+  slow:'慢的', hot:'熱的', cold:'冷的', new:'新的', old:'舊的／老的',
+  good:'好的', bad:'壞的', beautiful:'漂亮的', cute:'可愛的',
+  sun:'太陽', moon:'月亮', star:'星星', sky:'天空', rain:'雨', snow:'雪',
+  wind:'風', cloud:'雲',
+  house:'房子', car:'車子', bus:'公車', bike:'腳踏車', train:'火車',
+  airplane:'飛機', boat:'船',
+  monday:'星期一', tuesday:'星期二', wednesday:'星期三', thursday:'星期四',
+  friday:'星期五', saturday:'星期六', sunday:'星期日',
+  spring:'春天', summer:'夏天', autumn:'秋天', fall:'秋天', winter:'冬天',
+  water:'水', milk:'牛奶', bread:'麵包', rice:'米飯', egg:'蛋', cake:'蛋糕',
+  candy:'糖果', juice:'果汁',
+  hello:'哈囉／你好', hi:'嗨', bye:'再見', goodbye:'再見', please:'請',
+  thanks:'謝謝', thankyou:'謝謝', sorry:'對不起', yes:'是的', no:'不是',
+  'how are you':'你好嗎', 'thank you':'謝謝你', 'i love you':'我愛你',
+  'good morning':'早安', 'good night':'晚安'
+};
+
+function tryOfflineDict(text){
+  const key = text.trim().toLowerCase();
+  if(OFFLINE_DICT[key]) return OFFLINE_DICT[key];
+  return null;
+}
+
 async function translateText(text){
   const sources = [translateViaMyMemory, translateViaLingva];
   const errors = [];
@@ -555,6 +600,10 @@ async function translateText(text){
       errors.push(err.message || String(err));
     }
   }
+  // 兩個線上來源都失敗，最後查一次離線詞庫
+  const offline = tryOfflineDict(text);
+  if(offline) return offline + '（離線詞庫）';
+
   const combined = new Error(errors.join(' ｜ '));
   combined.detail = errors;
   throw combined;
@@ -842,6 +891,16 @@ document.getElementById('diagnoseBtn').addEventListener('click', async ()=>{
 
   const lines = [];
 
+  // 先測試一個跟翻譯完全無關、很少被擋的知名網域，確認基本連線能力
+  try{
+    const res = await fetch('https://api.github.com/zen');
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    lines.push('✅ 基本網路連線正常（能連到 api.github.com）');
+  }catch(err){
+    lines.push(`❌ 連基本網路都失敗：${err.message}`);
+    lines.push('👉 這代表問題不是翻譯服務本身，而是你目前的瀏覽器或網路整個擋住了對外連線。');
+  }
+
   try{
     const r = await translateViaMyMemory('hello');
     lines.push(`✅ MyMemory 正常，測試結果：hello → ${r}`);
@@ -856,7 +915,16 @@ document.getElementById('diagnoseBtn').addEventListener('click', async ()=>{
     lines.push(`❌ Lingva 失敗：${err.message}`);
   }
 
-  lines.push('\n💡 如果兩個都失敗，通常代表目前的網路（防火牆／公司或學校網路／VPN）擋住了對外連線，可以換一個網路試試看，或直接用手動編輯（✏️）自己輸入翻譯。');
+  const allTranslationFailed = lines.filter(l => l.includes('MyMemory 失敗') || l.includes('Lingva 失敗')).length === 2;
+  const basicOk = lines[0].startsWith('✅');
+
+  if(basicOk && allTranslationFailed){
+    lines.push('\n💡 基本網路是通的，但兩個翻譯服務都連不到。最可能是：');
+    lines.push('1. 瀏覽器有安裝廣告攔截 / 隱私保護擴充功能（例如 uBlock Origin、Brave 的 Shields、AdGuard），把這些「不知名 API 網域」當成追蹤器擋掉了。請試著關閉擴充功能，或用「無痕視窗」重新整理再測一次。');
+    lines.push('2. 你目前的網路（公司／學校／某些地區的網路）本身封鎖了這幾個網域。可以換成手機行動網路測試看看是否正常。');
+  } else if(!basicOk){
+    lines.push('\n💡 建議：換一個瀏覽器、換成無痕視窗、或換一個網路（例如改用手機行動網路）再試一次。');
+  }
 
   box.textContent = lines.join('\n');
 });
