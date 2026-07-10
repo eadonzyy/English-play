@@ -9,15 +9,12 @@
         body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; padding: 20px; display: flex; justify-content: center; margin: 0; }
         .container { width: 100%; max-width: 1000px; }
         h2 { text-align: center; color: #0f172a; margin-bottom: 20px; font-weight: 700; }
-        
-        /* 頂部操作區，改為並排三欄佈局 */
         .controls { display: flex; gap: 10px; margin-bottom: 25px; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
         .controls input { padding: 10px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 15px; outline: none; }
-        #engInput { flex: 1.2; } /* 英文輸入框 */
-        #chInput { flex: 1; background-color: #fdfdfd; } /* 中文自動填寫與手動修改框 */
+        #engInput { flex: 1.2; }
+        #chInput { flex: 1; background-color: #fdfdfd; }
         .controls input:focus { border-color: var(--p); }
         .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; background: var(--p); color: white; white-space: nowrap; }
-        
         .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
         .card-container { perspective: 1000px; cursor: pointer; }
         .word-card { width: 100%; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; position: relative; min-height: 140px; }
@@ -31,15 +28,17 @@
         .btn-card { padding: 6px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center; }
         .btn-speak { background: #f0fdf4; color: var(--s); }
         .btn-delete { background: #fef2f2; color: var(--d); margin-left: auto; }
+        #dictStatus { text-align: center; font-size: 12px; color: #94a3b8; margin-top: -15px; margin-bottom: 15px; }
     </style>
 </head>
 <body>
 <div class="container">
     <h2>🗂️ Smart English Flashcards</h2>
+    <!-- 提示字典資料庫加載狀態 -->
+    <div id="dictStatus">本地 AI 字典字典庫載入中...</div>
     
-    <!-- 頂部控制面板：支援英文輸入、中文自動聯動、確認後新增 -->
     <div class="controls">
-        <input type="text" id="engInput" placeholder="輸入英文 (例如: sit)..." oninput="triggerLiveTranslate(this.value)">
+        <input type="text" id="engInput" placeholder="輸入英文 (例如: sit)..." oninput="searchLocalDict(this.value)">
         <input type="text" id="chInput" placeholder="中文翻譯自動載入中..." onkeypress="if(event.key==='Enter') addCardFromUI()">
         <button class="btn" id="addBtn" onclick="addCardFromUI()">➕ Add</button>
     </div>
@@ -48,38 +47,25 @@
 </div>
 <script>
     let topDebounceTimer = null;
-    window.onload = loadCards;
+    let globalDict = null; // 存放從雲端下載下來的完整本地英漢字典庫
+    window.onload = initApp;
 
-    // 高相容性跨網域 API，專門用來在頂部進行聯動即時預覽
-    function fetchPreviewTranslationJsonp(text, cbName) {
-        return new Promise((resolve) => {
-            window[cbName] = function(data) {
-                try {
-                    if (data && data) {
-                        let translated = "";
-                        data.forEach(part => { if (part && part) translated += part; });
-                        resolve(translated);
-                        return;
-                    }
-                } catch(e) {}
-                resolve('');
-                cleanup();
-            };
-            function cleanup() {
-                const node = document.getElementById(cbName);
-                if (node) node.remove();
-                delete window[cbName];
-            }
-            const script = document.createElement('script');
-            script.id = cbName;
-            script.src = `https://googleapis.com{encodeURIComponent(text)}&cb=${cbName}`;
-            script.onerror = function() { resolve(''); cleanup(); };
-            document.body.appendChild(script);
-        });
+    async function initApp() {
+        loadCards();
+        const statusEl = document.getElementById('dictStatus');
+        try {
+            // 從公共開源 CDN 載入包羅萬象的基礎英漢常用大字典 JSON（無 CORS 限制）
+            const res = await fetch('https://jsdelivr.net');
+            globalDict = await res.json();
+            statusEl.textContent = '🟢 本地智慧字典已就緒（查單字免聯網、不限流）';
+        } catch (e) {
+            console.error(e);
+            statusEl.textContent = '🔴 字典載入失敗，但您仍可手動輸入英文與中文';
+        }
     }
 
-    // 【即時聯動核心】：當您在英文框內打字時觸發
-    function triggerLiveTranslate(text) {
+    // 【核心改造】：0毫秒本機直接查表，不再向 Google 網址發送連線，永不封鎖 IP
+    function searchLocalDict(text) {
         const chInput = document.getElementById('chInput');
         clearTimeout(topDebounceTimer);
         
@@ -88,21 +74,24 @@
             return;
         }
 
-        // 停止打字 0.8 秒後，自動去抓取翻譯並直接倒灌進中文輸入框
-        topDebounceTimer = setTimeout(async () => {
-            chInput.placeholder = '⚡ 翻譯中...';
-            const cbName = 'previewCB_' + Date.now() + '_' + Math.floor(Math.random() * 100);
-            const result = await fetchPreviewTranslationJsonp(text.trim(), cbName);
+        topDebounceTimer = setTimeout(() => {
+            const wordKey = text.trim().toLowerCase();
             
-            if (result) {
-                chInput.value = result;
+            // 如果大字典庫載入成功，直接在用戶電腦本機中查找
+            if (globalDict && globalDict[wordKey]) {
+                const dictEntry = globalDict[wordKey];
+                // 優先抓取簡明釋義，並把換行符號或詞性符號整理乾淨
+                let translation = dictEntry.translation || dictEntry.definition || '';
+                translation = translation.replace(/\\n/g, ' ； ').replace(/\n/g, ' ； ').trim();
+                chInput.value = translation;
             } else {
-                chInput.placeholder = '未自動識別，請手動填寫';
+                // 如果字典沒查到該詞（或尚未載入完成），保持乾淨留空，讓用戶自行填寫
+                chInput.value = '';
+                chInput.placeholder = '請手動輸入中文翻譯...';
             }
-        }, 800);
-    }
+        }, 300); // 本地查詢反應極快，防抖大幅縮短到 0.3 秒，體驗更流暢
+    </script>
 
-    // 點擊 Add 按鈕：直接打包目前的兩個輸入框文字生成卡片
     function addCardFromUI() {
         const engInput = document.getElementById('engInput');
         const chInput = document.getElementById('chInput');
@@ -113,10 +102,8 @@
         if (!engText) { alert('請先輸入英文！'); return; }
 
         const cardId = 'c_' + Date.now() + '_' + Math.floor(Math.random() * 100);
-        // 生成卡片
-        createCardDOM(cardId, engText, chText || '（無翻譯）', true);
+        createCardDOM(cardId, engText, chText || '（請點擊補充中文）', true);
         
-        // 清空頂部輸入框，回復初始狀態
         engInput.value = '';
         chInput.value = '';
         chInput.placeholder = '中文翻譯自動載入中...';
@@ -124,7 +111,6 @@
         saveCards();
     }
 
-    // 生成卡片 DOM 結構 (在此處移除了所有自動更新監聽，只取 Add 時的那一次文字)
     function createCardDOM(id, eng, ch, isTop = false) {
         const grid = document.getElementById('cardGrid'), box = document.createElement('div');
         box.className = 'card-container'; box.dataset.id = id;
@@ -134,7 +120,6 @@
             <div class="word-card">
                 <div class="card-front">
                     <div class="card-label">English</div>
-                    <!-- 移除所有 handleCardInput 翻譯更新回呼，之後在正面修改文字只會純存檔，絕不重啟聯網翻譯 -->
                     <textarea class="eng-text" oninput="saveCards()" onclick="event.stopPropagation()">${eng}</textarea>
                     <div class="card-actions">
                         <button class="btn-card btn-speak" onclick="speak(this); event.stopPropagation();">🔊 Speak</button>
@@ -164,11 +149,11 @@
         const data = Array.from(document.querySelectorAll('.card-container')).map(c => ({
             id: c.dataset.id, english: c.querySelector('.eng-text').value, chinese: c.querySelector('.ch-text').value
         }));
-        localStorage.setItem('myGitHubInterlinkedCards_v1', JSON.stringify(data));
+        localStorage.setItem('myGitHubLocalDictCards_v1', JSON.stringify(data));
     }
 
     function loadCards() {
-        const data = JSON.parse(localStorage.getItem('myGitHubInterlinkedCards_v1') || '[]');
+        const data = JSON.parse(localStorage.getItem('myGitHubLocalDictCards_v1') || '[]');
         document.getElementById('cardGrid').innerHTML = '';
         if (data.length > 0) {
             data.forEach(c => createCardDOM(c.id || 'c_'+Date.now(), c.english, c.chinese, false));
