@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Flashcards</title>
+    <title>雙面自定義單字卡 (離線永久穩定版)</title>
     <style>
         :root { --p: #4f46e5; --s: #10b981; --d: #ef4444; }
-        body { font-family: system-ui, sans-serif; background: #f8fafc; padding: 20px; display: flex; justify-content: center; margin: 0; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; padding: 20px; display: flex; justify-content: center; margin: 0; }
         .container { width: 100%; max-width: 1000px; }
         h2 { text-align: center; color: #0f172a; margin-bottom: 20px; font-weight: 700; }
         .controls { display: flex; gap: 10px; margin-bottom: 25px; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
         .controls input { flex: 1; padding: 10px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 15px; outline: none; }
         .controls input:focus { border-color: var(--p); }
-        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; background: var(--p); color: white; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; background: var(--p); color: white; transition: background 0.2s; }
+        .btn:hover { background: #4338ca; }
         .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
         .card-container { perspective: 1000px; cursor: pointer; }
         .word-card { width: 100%; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; position: relative; min-height: 140px; }
@@ -23,60 +24,40 @@
         .card-label { font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 6px; display: flex; justify-content: space-between; user-select: none; }
         textarea { width: 100%; border: none; resize: none; outline: none; background: transparent; font-size: 1.1rem; font-weight: 600; color: #1e293b; font-family: inherit; flex: 1; }
         .card-actions { display: flex; gap: 6px; margin-top: auto; }
-        .btn-card { padding: 6px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center; }
-        .btn-speak { background: #f0fdf4; color: var(--s); }
-        .btn-refresh { background: #eff6ff; color: var(--p); }
-        .btn-delete { background: #fef2f2; color: var(--d); margin-left: auto; }
+        .btn-card { padding: 6px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+        .btn-speak { background: #f0fdf4; color: var(--s); transition: background 0.2s; }
+        .btn-speak:hover { background: var(--s); color: white; }
+        .btn-delete { background: #fef2f2; color: var(--d); margin-left: auto; transition: background 0.2s; }
+        .btn-delete:hover { background: var(--d); color: white; }
     </style>
 </head>
 <body>
 <div class="container">
     <h2>🗂️ Smart English Flashcards</h2>
     <div class="controls">
-        <input type="text" id="engInput" placeholder="Enter English word..." onkeypress="if(event.key==='Enter') addCardFromUI()">
-        <button class="btn" id="addBtn" onclick="addCardFromUI()">➕ Add</button>
+        <input type="text" id="engInput" placeholder="English word...">
+        <input type="text" id="chInput" placeholder="中文翻譯..." onkeypress="if(event.key==='Enter') addCardFromUI()">
+        <button class="btn" onclick="addCardFromUI()">➕ Add</button>
     </div>
     <div id="cardGrid" class="card-grid"></div>
 </div>
 <script>
-    let timers = {};
     window.onload = loadCards;
 
-    function fetchTranslationJsonp(text, callbackName) {
-        return new Promise((resolve) => {
-            window[callbackName] = function(data) {
-                try {
-                    if (data && data[0]) {
-                        let translated = "";
-                        data[0].forEach(part => { if (part && part[0]) translated += part[0]; });
-                        resolve(translated);
-                    }
-                } catch(e) { resolve(null); }
-                const node = document.getElementById(callbackName);
-                if (node) node.remove();
-                delete window[callbackName];
-            };
-            const script = document.createElement('script');
-            script.id = callbackName;
-            script.src = `https://googleapis.com{encodeURIComponent(text)}&cb=${callbackName}`;
-            script.onerror = function() { resolve(null); if (script) script.remove(); delete window[callbackName]; };
-            document.body.appendChild(script);
-        });
-    }
-
-    async function addCardFromUI() {
-        const input = document.getElementById('engInput'), btn = document.getElementById('addBtn');
-        const engText = input.value.trim();
-        if (!engText) return;
-        btn.disabled = true; btn.textContent = '⚡...';
+    function addCardFromUI() {
+        const engInput = document.getElementById('engInput');
+        const chInput = document.getElementById('chInput');
+        const engText = engInput.value.trim();
+        const chText = chInput.value.trim();
         
-        const cbName = 'googleCB_' + Date.now() + '_' + Math.floor(Math.random() * 100);
-        let chText = await fetchTranslationJsonp(engText, cbName);
-        if (!chText) chText = '翻譯失敗，請點刷新或手動修改';
+        if (!engText && !chText) return;
         
         const cardId = 'c_' + Date.now() + '_' + Math.floor(Math.random() * 100);
         createCardDOM(cardId, engText, chText, true);
-        input.value = ''; btn.disabled = false; btn.textContent = '➕ Add';
+        
+        engInput.value = '';
+        chInput.value = '';
+        engInput.focus();
         saveCards();
     }
 
@@ -87,11 +68,10 @@
         box.innerHTML = `
             <div class="word-card">
                 <div class="card-front">
-                    <div class="card-label"><span>English</span><span style="font-size:10px;color:#94a3b8" id="st-${id}">已同步</span></div>
-                    <textarea class="eng-text" oninput="handleCardInput('${id}', this.value)" onclick="event.stopPropagation()">${eng}</textarea>
+                    <div class="card-label">English</div>
+                    <textarea class="eng-text" oninput="saveCards()" onclick="event.stopPropagation()">${eng}</textarea>
                     <div class="card-actions">
                         <button class="btn-card btn-speak" onclick="speak(this); event.stopPropagation();">🔊 Speak</button>
-                        <button class="btn-card btn-refresh" onclick="forceRefresh('${id}'); event.stopPropagation();">🔄 翻譯</button>
                         <button class="btn-card btn-delete" onclick="deleteCard(this); event.stopPropagation();">🗑️</button>
                     </div>
                 </div>
@@ -102,40 +82,6 @@
                 </div>
             </div>`;
         if (isTop) { grid.prepend(box); } else { grid.appendChild(box); }
-    }
-
-    async function forceRefresh(cardId) {
-        const container = document.querySelector(`.card-container[data-id="${cardId}"]`);
-        if (!container) return;
-        const engText = container.querySelector('.eng-text').value.trim();
-        const st = document.getElementById(`st-${cardId}`);
-        if (!engText) return;
-        if (st) st.textContent = '🔄...';
-        const cbName = 'googleCB_' + Date.now() + '_' + Math.floor(Math.random() * 100);
-        const newCh = await fetchTranslationJsonp(engText, cbName);
-        if (newCh) {
-            container.querySelector('.ch-text').value = newCh;
-            if (st) st.textContent = '已同步';
-        } else {
-            if (st) st.textContent = '限流中..再試一次';
-        }
-        saveCards();
-    }
-
-    function handleCardInput(id, text) {
-        const st = document.getElementById(`st-${id}`);
-        if (st) st.textContent = '打字中...';
-        clearTimeout(timers[id]);
-        timers[id] = setTimeout(async () => {
-            const el = document.querySelector(`.card-container[data-id="${id}"]`);
-            if (!el || !text.trim()) { if(st) st.textContent='已同步'; saveCards(); return; }
-            if (st) st.textContent = '🔄...';
-            const cbName = 'googleCB_' + Date.now() + '_' + Math.floor(Math.random() * 100);
-            const newCh = await fetchTranslationJsonp(text.trim(), cbName);
-            if (newCh) el.querySelector('.ch-text').value = newCh;
-            if (st) st.textContent = '已同步';
-            saveCards();
-        }, 1200);
     }
 
     function deleteCard(btn) { btn.closest('.card-container').remove(); saveCards(); }
@@ -152,11 +98,11 @@
         const data = Array.from(document.querySelectorAll('.card-container')).map(c => ({
             id: c.dataset.id, english: c.querySelector('.eng-text').value, chinese: c.querySelector('.ch-text').value
         }));
-        localStorage.setItem('myGitHubCardsB_v2', JSON.stringify(data));
+        localStorage.setItem('myGitHubLocalFinal', JSON.stringify(data));
     }
 
     function loadCards() {
-        const data = JSON.parse(localStorage.getItem('myGitHubCardsB_v2') || '[]');
+        const data = JSON.parse(localStorage.getItem('myGitHubLocalFinal') || '[]');
         document.getElementById('cardGrid').innerHTML = '';
         if (data.length > 0) {
             data.forEach(c => createCardDOM(c.id || 'c_'+Date.now(), c.english, c.chinese, false));
