@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎈 英文單字卡 Word Cards</title>
+<style>
+  :root{
+    --sky: #4FC3F7;
+    --sky-dark: #29A9E0;
+    --sun: #FFC93C;
+    --sun-dark: #F4A522;
+    --grass: #6BCB77;
+    --grass-dark: #4CAF50;
+    --coral: #FF6B6B;
+    --coral-dark: #E85555;
+    --cream: #FFFDF7;
+    --ink: #3A3A3A;
+    --card-back: #FFFFFF;
+  }
+
+  * { box-sizing: border-box; }
+
+  body{
+    margin:0;
+    font-family: 'Comic Sans MS', 'Chalkboard SE', 'Arial Rounded MT Bold', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+    background: linear-gradient(180deg, var(--sky) 0%, #A7E6FF 35%, var(--cream) 35%, var(--cream) 100%);
+    min-height: 100vh;
+    color: var(--ink);
+  }
+
+  /* 雲朵裝飾 */
+  .clouds{
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 220px;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+  }
+  .cloud{
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    opacity: 0.85;
+  }
+  .cloud::before, .cloud::after{
+    content:'';
+    position:absolute;
+    background: white;
+    border-radius: 50%;
+  }
+  .c1{ width:80px; height:40px; top:30px; left:8%; }
+  .c1::before{ width:50px; height:50px; top:-25px; left:10px; }
+  .c1::after{ width:60px; height:35px; top:-10px; left:35px; }
+  .c2{ width:60px; height:30px; top:70px; right:12%; }
+  .c2::before{ width:40px; height:40px; top:-20px; left:8px; }
+  .c2::after{ width:45px; height:28px; top:-8px; left:28px; }
+
+  header{
+    position: relative;
+    z-index: 1;
+    text-align:center;
+    padding: 28px 16px 10px;
+  }
+  header h1{
+    font-size: 2.1rem;
+    margin: 0;
+    color: white;
+    text-shadow: 2px 3px 0 var(--sky-dark);
+    letter-spacing: 1px;
+  }
+  header p{
+    color: #f0fbff;
+    font-size: 1rem;
+    margin: 6px 0 0;
+    text-shadow: 1px 1px 0 var(--sky-dark);
+  }
+
+  main{
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 10px 16px 60px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* 輸入區 */
+  .input-panel{
+    background: var(--card-back);
+    border-radius: 24px;
+    padding: 20px;
+    box-shadow: 0 8px 0 rgba(0,0,0,0.06), 0 8px 20px rgba(0,0,0,0.08);
+    margin-bottom: 24px;
+  }
+  .input-panel label{
+    display:block;
+    font-size: 1.15rem;
+    font-weight: bold;
+    color: var(--sky-dark);
+    margin-bottom: 8px;
+  }
+  textarea{
+    width: 100%;
+    min-height: 90px;
+    font-size: 1.2rem;
+    padding: 14px;
+    border-radius: 16px;
+    border: 3px solid #BEE9FF;
+    font-family: inherit;
+    resize: vertical;
+    background: #FBFEFF;
+  }
+  textarea:focus{
+    outline: none;
+    border-color: var(--sky);
+  }
+  .hint{
+    font-size: 0.85rem;
+    color: #888;
+    margin-top: 6px;
+  }
+
+  .btn-row{
+    display:flex;
+    gap: 12px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+  button{
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    font-weight: bold;
+    font-size: 1.05rem;
+    border-radius: 999px;
+    padding: 12px 22px;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    box-shadow: 0 5px 0 rgba(0,0,0,0.15);
+  }
+  button:active{
+    transform: translateY(4px);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.15);
+  }
+  .btn-add{ background: var(--grass); color: white; box-shadow: 0 5px 0 var(--grass-dark); }
+  .btn-add:active{ box-shadow: 0 1px 0 var(--grass-dark); }
+  .btn-clear{ background: #E0E0E0; color: #555; box-shadow: 0 5px 0 #b8b8b8; }
+  .btn-clear:active{ box-shadow: 0 1px 0 #b8b8b8; }
+
+  .status{
+    text-align:center;
+    font-size: 0.95rem;
+    color: var(--sky-dark);
+    min-height: 20px;
+    margin: -8px 0 18px;
+    font-weight: bold;
+  }
+
+  /* 卡片區 */
+  .cards-toolbar{
+    display:flex;
+    justify-content: space-between;
+    align-items:center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .cards-toolbar h2{
+    color: var(--coral-dark);
+    font-size: 1.3rem;
+    margin: 0;
+  }
+  .btn-reset-all{ background: var(--coral); color:white; box-shadow: 0 5px 0 var(--coral-dark); font-size: 0.9rem; padding: 8px 16px;}
+  .btn-reset-all:active{ box-shadow: 0 1px 0 var(--coral-dark); }
+
+  .grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+  }
+
+  .card-outer{
+    perspective: 1000px;
+    height: 210px;
+  }
+  .card{
+    position: relative;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    transition: transform 0.5s;
+    transform-style: preserve-3d;
+  }
+  .card.flipped{
+    transform: rotateY(180deg);
+  }
+  .face{
+    position: absolute;
+    inset: 0;
+    border-radius: 20px;
+    backface-visibility: hidden;
+    display:flex;
+    flex-direction: column;
+    align-items:center;
+    justify-content:center;
+    padding: 16px;
+    padding-top: 34px;
+    padding-bottom: 34px;
+    text-align:center;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.1), 0 6px 16px rgba(0,0,0,0.1);
+  }
+  .face-front{
+    background: linear-gradient(160deg, #FFFFFF, #EFFBFF);
+    border: 3px solid var(--sky);
+  }
+  .face-back{
+    background: linear-gradient(160deg, var(--sun), #FFE28A);
+    border: 3px solid var(--sun-dark);
+    transform: rotateY(180deg);
+    color: #6b4a00;
+  }
+  .word-text{
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: var(--sky-dark);
+    word-break: break-word;
+    line-height: 1.3;
+  }
+  .face-back .word-text{
+    color: #6b4a00;
+    font-size: 1.15rem;
+  }
+  .translation-text{
+    font-size: 1.15rem;
+    margin-top: 8px;
+    font-weight: bold;
+  }
+  .flip-hint{
+    font-size: 0.7rem;
+    color: #aaa;
+    margin-top: 10px;
+  }
+
+  .speak-btn{
+    position:absolute;
+    top: 8px;
+    right: 8px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--grass);
+    color: white;
+    box-shadow: 0 3px 0 var(--grass-dark);
+    font-size: 1.05rem;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 0;
+    z-index: 3;
+  }
+  .speak-btn:active{
+    box-shadow: 0 1px 0 var(--grass-dark);
+  }
+
+  .delete-btn{
+    position:absolute;
+    top: 8px;
+    left: 8px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #f0f0f0;
+    color: #999;
+    box-shadow: 0 3px 0 #ccc;
+    font-size: 0.85rem;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 0;
+    z-index: 3;
+  }
+  .delete-btn:active{ box-shadow: 0 1px 0 #ccc; }
+
+  .edit-btn{
+    position:absolute;
+    top: 46px;
+    left: 8px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #FFF0C2;
+    color: #A67C00;
+    box-shadow: 0 3px 0 #E0C070;
+    font-size: 0.85rem;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 0;
+    z-index: 3;
+  }
+  .edit-btn:active{ box-shadow: 0 1px 0 #E0C070; }
+
+  .drag-handle{
+    position:absolute;
+    bottom: 6px;
+    left: 8px;
+    font-size: 1rem;
+    color: #ccc;
+    cursor: grab;
+    z-index: 3;
+    padding: 4px 6px;
+  }
+  .drag-handle:active{ cursor: grabbing; }
+
+  .move-btns{
+    position:absolute;
+    bottom: 4px;
+    right: 8px;
+    display:flex;
+    gap: 4px;
+    z-index: 3;
+  }
+  .move-btn{
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #EAF7FF;
+    color: var(--sky-dark);
+    box-shadow: 0 3px 0 #BEE9FF;
+    font-size: 0.8rem;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 0;
+  }
+  .move-btn:active{ box-shadow: 0 1px 0 #BEE9FF; }
+  .move-btn:disabled{ opacity: 0.3; cursor: default; }
+
+  .retry-btn{
+    margin-top: 8px;
+    background: var(--coral);
+    color: white;
+    box-shadow: 0 3px 0 var(--coral-dark);
+    font-size: 0.8rem;
+    padding: 6px 14px;
+  }
+  .retry-btn:active{ box-shadow: 0 1px 0 var(--coral-dark); }
+
+  .card-outer.dragging{
+    opacity: 0.4;
+  }
+  .card-outer.drag-over{
+    outline: 3px dashed var(--sky);
+    outline-offset: 4px;
+    border-radius: 20px;
+  }
+
+  /* 編輯視窗 */
+  .modal-backdrop{
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index: 100;
+    padding: 16px;
+  }
+  .modal-box{
+    background: white;
+    border-radius: 22px;
+    padding: 24px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 10px 0 rgba(0,0,0,0.1);
+  }
+  .modal-box h3{
+    margin: 0 0 16px;
+    color: var(--sky-dark);
+    font-size: 1.2rem;
+  }
+  .modal-box label{
+    display:block;
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: #777;
+    margin: 12px 0 6px;
+  }
+  .modal-box input[type="text"]{
+    width: 100%;
+    font-size: 1.05rem;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 3px solid #BEE9FF;
+    font-family: inherit;
+  }
+  .modal-box input[type="text"]:focus{
+    outline:none;
+    border-color: var(--sky);
+  }
+  .modal-btn-row{
+    display:flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .btn-save{ background: var(--grass); color: white; box-shadow: 0 5px 0 var(--grass-dark); flex:1; }
+  .btn-save:active{ box-shadow: 0 1px 0 var(--grass-dark); }
+  .btn-cancel{ background: #E0E0E0; color: #555; box-shadow: 0 5px 0 #b8b8b8; }
+  .btn-cancel:active{ box-shadow: 0 1px 0 #b8b8b8; }
+  .btn-auto-translate{
+    background: var(--sun);
+    color: #6b4a00;
+    box-shadow: 0 4px 0 var(--sun-dark);
+    font-size: 0.85rem;
+    padding: 8px 14px;
+    margin-top: 8px;
+  }
+  .btn-auto-translate:active{ box-shadow: 0 1px 0 var(--sun-dark); }
+
+  .empty-state{
+    text-align:center;
+    padding: 50px 20px;
+    color: #999;
+    font-size: 1.1rem;
+  }
+  .empty-state .emoji{
+    font-size: 3rem;
+    display:block;
+    margin-bottom: 10px;
+  }
+
+  footer{
+    text-align:center;
+    padding: 20px;
+    color: #999;
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 480px){
+    header h1{ font-size: 1.6rem; }
+    .grid{ grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+    .card-outer{ height: 150px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="clouds">
+  <div class="cloud c1"></div>
+  <div class="cloud c2"></div>
+</div>
+
+<header>
+  <h1>🎈 英文單字卡 Word Cards</h1>
+  <p>輸入英文，自動翻譯，點一點卡片就會唸給你聽！</p>
+</header>
+
+<main>
+  <div class="input-panel">
+    <label for="wordInput">✏️ 輸入英文單字或句子（每行一個，也可以用逗號分開）</label>
+    <textarea id="wordInput" placeholder="例如：&#10;apple&#10;How are you?&#10;banana, orange, dog"></textarea>
+    <div class="hint">💡 小提醒：每一行算一張卡片，也可以用逗號 , 分開好幾個單字</div>
+    <div class="btn-row">
+      <button class="btn-add" id="addBtn">➕ 加入卡片並翻譯</button>
+      <button class="btn-clear" id="clearInputBtn">🧹 清空輸入框</button>
+      <button class="btn-clear" id="diagnoseBtn">🔍 檢查翻譯服務</button>
+    </div>
+  </div>
+
+  <div class="status" id="diagnoseResult" style="white-space:pre-line;text-align:left;background:#FFF9E8;border-radius:12px;padding:10px 14px;display:none;"></div>
+
+  <div class="status" id="status"></div>
+
+  <div class="cards-toolbar">
+    <h2>📚 我的單字卡</h2>
+    <button class="btn-reset-all" id="resetAllBtn">🗑️ 全部刪除</button>
+  </div>
+
+  <div class="grid" id="grid"></div>
+</main>
+
+<footer>做給小朋友學英文用 🌟 資料只會存在你自己的瀏覽器裡</footer>
+
+<script>
+const STORAGE_KEY = 'wordcards_v1';
+
+let cards = [];
+
+function loadCards(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    cards = raw ? JSON.parse(raw) : [];
+  }catch(e){
+    cards = [];
+  }
+}
+
+function saveCards(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+}
+
+function setStatus(msg, isError){
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.style.color = isError ? '#E85555' : '#29A9E0';
+  if(msg){
+    setTimeout(()=>{ if(el.textContent === msg) el.textContent=''; }, 4000);
+  }
+}
+
+// 翻譯：依序嘗試多個支援瀏覽器 CORS 的免費來源
+async function translateViaMyMemory(text){
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|zh-TW`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error(`MyMemory HTTP ${res.status}`);
+  const data = await res.json();
+  const result = data?.responseData?.translatedText;
+  if(data.responseStatus !== 200){
+    throw new Error('MyMemory: ' + (data.responseDetails || '額度已用完或發生錯誤'));
+  }
+  if(!result || /INVALID|QUERY LENGTH|MYMEMORY WARNING/i.test(result)){
+    throw new Error('MyMemory 回傳異常：' + result);
+  }
+  return result;
+}
+
+async function translateViaLingva(text){
+  // Lingva 是 Google 翻譯的開源前端，有開放 CORS，換一台掛掉可以換下一台
+  const hosts = ['https://lingva.ml', 'https://translate.plausibility.cloud', 'https://lingva.thedaviddelta.com'];
+  let lastErr = null;
+  for(const host of hosts){
+    try{
+      const url = `${host}/api/v1/en/zh_TW/${encodeURIComponent(text)}`;
+      const res = await fetch(url);
+      if(!res.ok) throw new Error(`Lingva(${host}) HTTP ${res.status}`);
+      const data = await res.json();
+      if(!data?.translation) throw new Error(`Lingva(${host}) 無結果`);
+      return data.translation;
+    }catch(err){
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error('Lingva 全部失敗');
+}
+
+async function translateText(text){
+  const sources = [translateViaMyMemory, translateViaLingva];
+  const errors = [];
+  for(const source of sources){
+    try{
+      const result = await source(text);
+      return result;
+    }catch(err){
+      console.error('[翻譯來源失敗]', err);
+      errors.push(err.message || String(err));
+    }
+  }
+  const combined = new Error(errors.join(' ｜ '));
+  combined.detail = errors;
+  throw combined;
+}
+
+function parseInputToWords(raw){
+  // 先用換行拆，再用逗號拆，去除空白與重複
+  const lines = raw.split('\n').flatMap(line => line.split(','));
+  return lines
+    .map(w => w.trim())
+    .filter(w => w.length > 0);
+}
+
+function renderCards(){
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+
+  if(cards.length === 0){
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column: 1/-1;">
+        <span class="emoji">🦄</span>
+        還沒有單字卡喔！<br>在上面輸入英文，按「加入卡片」試試看吧！
+      </div>`;
+    return;
+  }
+
+  cards.forEach((card, index) => {
+    const outer = document.createElement('div');
+    outer.className = 'card-outer';
+    outer.draggable = true;
+    outer.dataset.index = index;
+
+    const failed = card.translationFailed;
+    const backContent = failed
+      ? `<div class="translation-text">😅 翻譯失敗</div>
+         <div style="font-size:0.75rem;color:#a67c00;margin-top:4px;max-height:40px;overflow:auto;">${escapeHtml(card.translationError || '')}</div>
+         <button class="retry-btn" data-action="retry" data-index="${index}">🔄 重新翻譯</button>`
+      : `<div class="translation-text">${escapeHtml(card.translation || '…')}</div>
+         <div class="flip-hint">👆 點我看英文</div>`;
+
+    const cardEl = document.createElement('div');
+    cardEl.className = 'card';
+    cardEl.innerHTML = `
+      <div class="face face-front">
+        <button class="delete-btn" title="刪除這張卡片" data-action="delete" data-index="${index}">✖</button>
+        <button class="edit-btn" title="修改這張卡片" data-action="edit" data-index="${index}">✏️</button>
+        <button class="speak-btn" title="播放發音" data-action="speak" data-index="${index}">🔊</button>
+        <div class="word-text">${escapeHtml(card.word)}</div>
+        <div class="flip-hint">👆 點我看翻譯</div>
+        <span class="drag-handle" title="拖曳調整順序">⠿</span>
+        <div class="move-btns">
+          <button class="move-btn" title="往前移" data-action="moveup" data-index="${index}" ${index===0?'disabled':''}>▲</button>
+          <button class="move-btn" title="往後移" data-action="movedown" data-index="${index}" ${index===cards.length-1?'disabled':''}>▼</button>
+        </div>
+      </div>
+      <div class="face face-back">
+        <button class="speak-btn" title="播放發音" data-action="speak" data-index="${index}">🔊</button>
+        ${backContent}
+      </div>
+    `;
+
+    cardEl.addEventListener('click', (e)=>{
+      if(e.target.closest('[data-action]')) return; // 按到按鈕不要翻卡
+      cardEl.classList.toggle('flipped');
+    });
+
+    outer.appendChild(cardEl);
+    grid.appendChild(outer);
+  });
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function speak(text){
+  if(!('speechSynthesis' in window)){
+    setStatus('這個瀏覽器不支援發音功能', true);
+    return;
+  }
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'en-US';
+  utter.rate = 0.9;
+
+  // 嘗試挑選比較自然的英文語音
+  const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find(v => v.lang === 'en-US' && /Google|Samantha|Natural/i.test(v.name))
+                 || voices.find(v => v.lang === 'en-US')
+                 || voices.find(v => v.lang.startsWith('en'));
+  if(preferred) utter.voice = preferred;
+
+  window.speechSynthesis.speak(utter);
+}
+
+document.getElementById('grid').addEventListener('click', async (e)=>{
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+  const index = parseInt(btn.dataset.index, 10);
+  const action = btn.dataset.action;
+
+  if(action === 'speak'){
+    speak(cards[index].word);
+  } else if(action === 'delete'){
+    cards.splice(index, 1);
+    saveCards();
+    renderCards();
+  } else if(action === 'edit'){
+    openEditModal(index);
+  } else if(action === 'moveup'){
+    if(index > 0){
+      [cards[index-1], cards[index]] = [cards[index], cards[index-1]];
+      saveCards();
+      renderCards();
+    }
+  } else if(action === 'movedown'){
+    if(index < cards.length - 1){
+      [cards[index+1], cards[index]] = [cards[index], cards[index+1]];
+      saveCards();
+      renderCards();
+    }
+  } else if(action === 'retry'){
+    btn.textContent = '⏳ 翻譯中...';
+    btn.disabled = true;
+    try{
+      const translation = await translateText(cards[index].word);
+      cards[index].translation = translation;
+      cards[index].translationFailed = false;
+      cards[index].translationError = '';
+    }catch(err){
+      cards[index].translationFailed = true;
+      cards[index].translationError = err.message;
+    }
+    saveCards();
+    renderCards();
+  }
+});
+
+/* 拖曳排序（滑鼠／桌面） */
+let dragSrcIndex = null;
+
+document.getElementById('grid').addEventListener('dragstart', (e)=>{
+  const outer = e.target.closest('.card-outer');
+  if(!outer) return;
+  dragSrcIndex = parseInt(outer.dataset.index, 10);
+  outer.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+});
+
+document.getElementById('grid').addEventListener('dragend', (e)=>{
+  const outer = e.target.closest('.card-outer');
+  if(outer) outer.classList.remove('dragging');
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+});
+
+document.getElementById('grid').addEventListener('dragover', (e)=>{
+  e.preventDefault();
+  const outer = e.target.closest('.card-outer');
+  if(!outer) return;
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  outer.classList.add('drag-over');
+});
+
+document.getElementById('grid').addEventListener('drop', (e)=>{
+  e.preventDefault();
+  const outer = e.target.closest('.card-outer');
+  if(!outer || dragSrcIndex === null) return;
+  const targetIndex = parseInt(outer.dataset.index, 10);
+  if(targetIndex === dragSrcIndex) return;
+
+  const [moved] = cards.splice(dragSrcIndex, 1);
+  cards.splice(targetIndex, 0, moved);
+  dragSrcIndex = null;
+  saveCards();
+  renderCards();
+});
+
+/* 編輯視窗 */
+function openEditModal(index){
+  const card = cards[index];
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="modal-box">
+      <h3>✏️ 修改單字卡</h3>
+      <label for="editWord">英文</label>
+      <input type="text" id="editWord" value="${escapeHtml(card.word)}">
+      <label for="editTranslation">中文翻譯</label>
+      <input type="text" id="editTranslation" value="${escapeHtml(card.translation || '')}">
+      <button class="btn-auto-translate" id="autoTranslateBtn">🔄 用英文自動翻譯</button>
+      <div class="modal-btn-row">
+        <button class="btn-save" id="saveEditBtn">✅ 儲存</button>
+        <button class="btn-cancel" id="cancelEditBtn">取消</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const wordInput = backdrop.querySelector('#editWord');
+  const transInput = backdrop.querySelector('#editTranslation');
+
+  backdrop.querySelector('#autoTranslateBtn').addEventListener('click', async ()=>{
+    const btn = backdrop.querySelector('#autoTranslateBtn');
+    btn.textContent = '⏳ 翻譯中...';
+    btn.disabled = true;
+    try{
+      transInput.value = await translateText(wordInput.value.trim());
+    }catch(err){
+      setStatus('自動翻譯失敗，請手動輸入', true);
+    }
+    btn.textContent = '🔄 用英文自動翻譯';
+    btn.disabled = false;
+  });
+
+  backdrop.querySelector('#cancelEditBtn').addEventListener('click', ()=>{
+    backdrop.remove();
+  });
+
+  backdrop.addEventListener('click', (e)=>{
+    if(e.target === backdrop) backdrop.remove();
+  });
+
+  backdrop.querySelector('#saveEditBtn').addEventListener('click', ()=>{
+    const newWord = wordInput.value.trim();
+    const newTrans = transInput.value.trim();
+    if(!newWord){
+      setStatus('英文欄位不能空白喔！', true);
+      return;
+    }
+    cards[index].word = newWord;
+    cards[index].translation = newTrans || cards[index].translation;
+    cards[index].translationFailed = false;
+    saveCards();
+    renderCards();
+    backdrop.remove();
+    setStatus('✅ 已儲存修改');
+  });
+}
+
+document.getElementById('addBtn').addEventListener('click', async ()=>{
+  const raw = document.getElementById('wordInput').value;
+  const words = parseInputToWords(raw);
+
+  if(words.length === 0){
+    setStatus('請先輸入一些英文單字或句子喔！', true);
+    return;
+  }
+
+  setStatus('翻譯中，請稍等一下... ⏳');
+  document.getElementById('addBtn').disabled = true;
+
+  let hadFailure = false;
+
+  for(const word of words){
+    // 避免重複加入一模一樣的單字
+    if(cards.some(c => c.word.toLowerCase() === word.toLowerCase())){
+      continue;
+    }
+    try{
+      const translation = await translateText(word);
+      cards.push({ word, translation, translationFailed: false });
+    }catch(err){
+      cards.push({ word, translation: '', translationFailed: true, translationError: err.message });
+      hadFailure = true;
+    }
+    saveCards();
+    renderCards();
+  }
+
+  document.getElementById('addBtn').disabled = false;
+  document.getElementById('wordInput').value = '';
+  setStatus(hadFailure ? '⚠️ 部分單字翻譯失敗，可點卡片上的「重新翻譯」再試一次' : '✅ 加入完成！', hadFailure);
+});
+
+document.getElementById('clearInputBtn').addEventListener('click', ()=>{
+  document.getElementById('wordInput').value = '';
+});
+
+document.getElementById('diagnoseBtn').addEventListener('click', async ()=>{
+  const box = document.getElementById('diagnoseResult');
+  box.style.display = 'block';
+  box.textContent = '檢查中，請稍等... ⏳';
+
+  const lines = [];
+
+  try{
+    const r = await translateViaMyMemory('hello');
+    lines.push(`✅ MyMemory 正常，測試結果：hello → ${r}`);
+  }catch(err){
+    lines.push(`❌ MyMemory 失敗：${err.message}`);
+  }
+
+  try{
+    const r = await translateViaLingva('hello');
+    lines.push(`✅ Lingva 正常，測試結果：hello → ${r}`);
+  }catch(err){
+    lines.push(`❌ Lingva 失敗：${err.message}`);
+  }
+
+  lines.push('\n💡 如果兩個都失敗，通常代表目前的網路（防火牆／公司或學校網路／VPN）擋住了對外連線，可以換一個網路試試看，或直接用手動編輯（✏️）自己輸入翻譯。');
+
+  box.textContent = lines.join('\n');
+});
+
+document.getElementById('resetAllBtn').addEventListener('click', ()=>{
+  if(cards.length === 0) return;
+  if(confirm('確定要刪除所有單字卡嗎？這個動作沒辦法復原喔！')){
+    cards = [];
+    saveCards();
+    renderCards();
+  }
+});
+
+// 確保語音清單載入完成（有些瀏覽器需要事件觸發）
+if('speechSynthesis' in window){
+  window.speechSynthesis.onvoiceschanged = () => {};
+}
+
+// 初始化
+loadCards();
+renderCards();
+</script>
+
+</body>
+</html>
