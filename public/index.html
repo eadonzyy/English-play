@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Smart Flashcards</title>
+    <style>
+        :root { --p: #4f46e5; --s: #10b981; --d: #ef4444; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; padding: 20px; display: flex; justify-content: center; margin: 0; }
+        .container { width: 100%; max-width: 1000px; }
+        h2 { text-align: center; color: #0f172a; margin-bottom: 20px; font-weight: 700; }
+        
+        .controls { display: flex; gap: 10px; margin-bottom: 25px; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); align-items: center; }
+        .controls input { padding: 10px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 15px; outline: none; }
+        #engInput { flex: 1.2; }
+        #chInput { flex: 1; background-color: #fdfdfd; }
+        .controls input:focus { border-color: var(--p); }
+        
+        .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; white-space: nowrap; transition: background 0.2s; }
+        .btn-translate { background-color: #eff6ff; color: var(--p); border: 1px solid #bfdbfe; }
+        .btn-translate:hover { background-color: var(--p); color: white; }
+        .btn-add { background-color: var(--p); color: white; }
+        .btn-add:hover { background-color: #4338ca; }
+        
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
+        .card-container { perspective: 1000px; cursor: pointer; }
+        .word-card { width: 100%; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; position: relative; min-height: 140px; }
+        .card-container.flipped .word-card { transform: rotateY(180deg); }
+        .card-front, .card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 14px; padding: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); background: white; box-sizing: border-box; border-left: 5px solid; display: flex; flex-direction: column; }
+        .card-front { border-left-color: var(--p); }
+        .card-back { border-left-color: var(--s); transform: rotateY(180deg); }
+        .card-label { font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 6px; display: flex; justify-content: space-between; user-select: none; }
+        textarea { width: 100%; border: none; resize: none; outline: none; background: transparent; font-size: 1.1rem; font-weight: 600; color: #1e293b; font-family: inherit; flex: 1; }
+        .card-actions { display: flex; gap: 6px; margin-top: auto; }
+        .btn-card { padding: 6px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center; }
+        .btn-speak { background: #f0fdf4; color: var(--s); }
+        .btn-delete { background: #fef2f2; color: var(--d); margin-left: auto; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>🗂️ Smart English Flashcards</h2>
+    <div class="controls">
+        <input type="text" id="engInput" placeholder="輸入英文單字或片語 (如: sit still)..." onkeypress="if(event.key==='Enter') cloudTranslate()">
+        <button class="btn btn-translate" id="transBtn" onclick="cloudTranslate()">🔍 翻譯</button>
+        <input type="text" id="chInput" placeholder="點擊翻譯或在此手動輸入..." onkeypress="if(event.key==='Enter') addCardFromUI()">
+        <button class="btn btn-add" onclick="addCardFromUI()">➕ Add</button>
+    </div>
+    <div id="cardGrid" class="card-grid"></div>
+</div>
+
+<script>
+    window.onload = loadCards;
+
+    async function cloudTranslate() {
+        const engInput = document.getElementById('engInput');
+        const chInput = document.getElementById('chInput');
+        const transBtn = document.getElementById('transBtn');
+        const text = engInput.value.trim();
+        if (!text) return;
+
+        transBtn.disabled = true;
+        transBtn.textContent = '⚡...';
+        chInput.placeholder = 'AI 雲端翻譯中...';
+
+        try {
+            const res = await fetch(`/api/translate?text=${encodeURIComponent(text)}`);
+            const data = await res.json();
+            chInput.value = data.translation;
+        } catch (e) {
+            chInput.placeholder = '翻譯失敗，請在此手動補上中文...';
+        }
+        transBtn.disabled = false;
+        transBtn.textContent = '🔍 翻譯';
+    }
+
+    function addCardFromUI() {
+        const engInput = document.getElementById('engInput');
+        const chInput = document.getElementById('chInput');
+        const engText = engInput.value.trim();
+        const chText = chInput.value.trim();
+        if (!engText) return;
+
+        const cardId = 'c_' + Date.now();
+        createCardDOM(cardId, engText, chText || '（請補充中文）', true);
+        engInput.value = '';
+        chInput.value = '';
+        chInput.placeholder = '點擊翻譯或在此手動輸入...';
+        engInput.focus();
+        saveCards();
+    }
+
+    function createCardDOM(id, eng, ch, isTop = false) {
+        const grid = document.getElementById('cardGrid'), box = document.createElement('div');
+        box.className = 'card-container'; box.dataset.id = id;
+        box.onclick = function() { this.classList.toggle('flipped'); };
+        box.innerHTML = `
+            <div class="word-card">
+                <div class="card-front">
+                    <div class="card-label">English</div>
+                    <textarea class="eng-text" oninput="saveCards()" onclick="event.stopPropagation()">${eng}</textarea>
+                    <div class="card-actions">
+                        <button class="btn-card btn-speak" onclick="speak(this); event.stopPropagation();">🔊 Speak</button>
+                        <button class="btn-card btn-delete" onclick="deleteCard(this); event.stopPropagation();">🗑️</button>
+                    </div>
+                </div>
+                <div class="card-back">
+                    <div class="card-label">Chinese</div>
+                    <textarea class="ch-text" oninput="saveCards()" onclick="event.stopPropagation()">${ch}</textarea>
+                    <div class="card-actions"><button class="btn-card btn-delete" onclick="deleteCard(this); event.stopPropagation();">🗑️</button></div>
+                </div>
+            </div>`;
+        if (isTop) { grid.prepend(box); } else { grid.appendChild(box); }
+    }
+
+    function deleteCard(btn) { btn.closest('.card-container').remove(); saveCards(); }
+    
+    function speak(btn) {
+        const txt = btn.closest('.card-container').querySelector('.eng-text').value.trim();
+        if ('speechSynthesis' in window && txt) {
+            const ut = new SpeechSynthesisUtterance(txt); ut.lang = 'en-US';
+            window.speechSynthesis.cancel(); window.speechSynthesis.speak(ut);
+        }
+    }
+    
+    function saveCards() {
+        const data = Array.from(document.querySelectorAll('.card-container')).map(c => ({
+            id: c.dataset.id, english: c.querySelector('.eng-text').value, chinese: c.querySelector('.ch-text').value
+        }));
+        localStorage.setItem('myVercelBilingualCards_v1', JSON.stringify(data));
+    }
+    
+    function loadCards() {
+        const data = JSON.parse(localStorage.getItem('myVercelBilingualCards_v1') || '[]');
+        document.getElementById('cardGrid').innerHTML = '';
+        if (data.length > 0) { data.forEach(c => createCardDOM(c.id, c.english, c.chinese, false)); }
+    }
+</script>
+</body>
+</html>
