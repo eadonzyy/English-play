@@ -3,16 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Single-Translate Flashcards</title>
+    <title>AI Smart Flashcards</title>
     <style>
         :root { --p: #4f46e5; --s: #10b981; --d: #ef4444; }
-        body { font-family: system-ui, sans-serif; background: #f8fafc; padding: 20px; display: flex; justify-content: center; margin: 0; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; padding: 20px; display: flex; justify-content: center; margin: 0; }
         .container { width: 100%; max-width: 1000px; }
         h2 { text-align: center; color: #0f172a; margin-bottom: 20px; font-weight: 700; }
+        
+        /* 頂部操作區，改為並排三欄佈局 */
         .controls { display: flex; gap: 10px; margin-bottom: 25px; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-        .controls input { flex: 1; padding: 10px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 15px; outline: none; }
+        .controls input { padding: 10px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 15px; outline: none; }
+        #engInput { flex: 1.2; } /* 英文輸入框 */
+        #chInput { flex: 1; background-color: #fdfdfd; } /* 中文自動填寫與手動修改框 */
         .controls input:focus { border-color: var(--p); }
-        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; background: var(--p); color: white; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; background: var(--p); color: white; white-space: nowrap; }
+        
         .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
         .card-container { perspective: 1000px; cursor: pointer; }
         .word-card { width: 100%; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; position: relative; min-height: 140px; }
@@ -31,73 +36,95 @@
 <body>
 <div class="container">
     <h2>🗂️ Smart English Flashcards</h2>
+    
+    <!-- 頂部控制面板：支援英文輸入、中文自動聯動、確認後新增 -->
     <div class="controls">
-        <input type="text" id="engInput" placeholder="Enter English word..." onkeypress="if(event.key==='Enter') addCardFromUI()">
+        <input type="text" id="engInput" placeholder="輸入英文 (例如: sit)..." oninput="triggerLiveTranslate(this.value)">
+        <input type="text" id="chInput" placeholder="中文翻譯自動載入中..." onkeypress="if(event.key==='Enter') addCardFromUI()">
         <button class="btn" id="addBtn" onclick="addCardFromUI()">➕ Add</button>
     </div>
+    
     <div id="cardGrid" class="card-grid"></div>
 </div>
 <script>
+    let topDebounceTimer = null;
     window.onload = loadCards;
 
-    // 核心突破：改用微軟官方網頁版免密鑰的高相容性 JSONP 字典通道，完美解決 GitHub CORS 阻擋
-    function fetchBingTranslationJsonp(text, cbName) {
+    // 高相容性跨網域 API，專門用來在頂部進行聯動即時預覽
+    function fetchPreviewTranslationJsonp(text, cbName) {
         return new Promise((resolve) => {
             window[cbName] = function(data) {
                 try {
-                    // 智慧解析 Bing 字典的回傳格式，自動抽取最乾淨的中文含意
-                    if (data && data.AS && data.AS.Results && data.AS.Results[0]) {
-                        const sug = data.AS.Results[0].Suggests;
-                        if (sug && sug[0]) {
-                            // 優先抓取簡明中文釋義，並移除多餘的英文詞性字元
-                            let meaning = sug[0].Txt;
-                            if (meaning) {
-                                meaning = meaning.replace(/^[a-zA-Z\.]+\s*/, '').trim();
-                                resolve(meaning);
-                                return;
-                            }
-                        }
+                    if (data && data) {
+                        let translated = "";
+                        data.forEach(part => { if (part && part) translated += part; });
+                        resolve(translated);
+                        return;
                     }
                 } catch(e) {}
-                resolve(''); // 查不到時預設返回空字串，絕不跳出失敗字眼
+                resolve('');
                 cleanup();
             };
-
             function cleanup() {
                 const node = document.getElementById(cbName);
                 if (node) node.remove();
                 delete window[cbName];
             }
-
             const script = document.createElement('script');
             script.id = cbName;
-            // 這是微軟必應官方供網頁即時提示的開放接口，速度極快且不限制 GitHub 網域
-            script.src = `https://bing.com{encodeURIComponent(text)}&cb=${cbName}`;
+            script.src = `https://googleapis.com{encodeURIComponent(text)}&cb=${cbName}`;
             script.onerror = function() { resolve(''); cleanup(); };
             document.body.appendChild(script);
         });
     }
 
-    async function addCardFromUI() {
-        const input = document.getElementById('engInput'), btn = document.getElementById('addBtn');
-        const engText = input.value.trim();
-        if (!engText) return;
-        btn.disabled = true; btn.textContent = '⚡...';
+    // 【即時聯動核心】：當您在英文框內打字時觸發
+    function triggerLiveTranslate(text) {
+        const chInput = document.getElementById('chInput');
+        clearTimeout(topDebounceTimer);
         
-        const cbName = 'bingCB_' + Date.now() + '_' + Math.floor(Math.random() * 100);
-        let chText = await fetchBingTranslationJsonp(engText, cbName);
-        
-        // 保險防呆機制：如果遇到極少數查不到的複合片語，背面會乾淨地留空，讓您隨時翻過去自己填寫，不再被破壞畫面
-        if (!chText || chText.trim() === '') {
-            chText = '';
+        if (!text.trim()) {
+            chInput.value = '';
+            return;
         }
+
+        // 停止打字 0.8 秒後，自動去抓取翻譯並直接倒灌進中文輸入框
+        topDebounceTimer = setTimeout(async () => {
+            chInput.placeholder = '⚡ 翻譯中...';
+            const cbName = 'previewCB_' + Date.now() + '_' + Math.floor(Math.random() * 100);
+            const result = await fetchPreviewTranslationJsonp(text.trim(), cbName);
+            
+            if (result) {
+                chInput.value = result;
+            } else {
+                chInput.placeholder = '未自動識別，請手動填寫';
+            }
+        }, 800);
+    }
+
+    // 點擊 Add 按鈕：直接打包目前的兩個輸入框文字生成卡片
+    function addCardFromUI() {
+        const engInput = document.getElementById('engInput');
+        const chInput = document.getElementById('chInput');
         
+        const engText = engInput.value.trim();
+        const chText = chInput.value.trim();
+        
+        if (!engText) { alert('請先輸入英文！'); return; }
+
         const cardId = 'c_' + Date.now() + '_' + Math.floor(Math.random() * 100);
-        createCardDOM(cardId, engText, chText, true);
-        input.value = ''; btn.disabled = false; btn.textContent = '➕ Add';
+        // 生成卡片
+        createCardDOM(cardId, engText, chText || '（無翻譯）', true);
+        
+        // 清空頂部輸入框，回復初始狀態
+        engInput.value = '';
+        chInput.value = '';
+        chInput.placeholder = '中文翻譯自動載入中...';
+        engInput.focus();
         saveCards();
     }
 
+    // 生成卡片 DOM 結構 (在此處移除了所有自動更新監聽，只取 Add 時的那一次文字)
     function createCardDOM(id, eng, ch, isTop = false) {
         const grid = document.getElementById('cardGrid'), box = document.createElement('div');
         box.className = 'card-container'; box.dataset.id = id;
@@ -107,6 +134,7 @@
             <div class="word-card">
                 <div class="card-front">
                     <div class="card-label">English</div>
+                    <!-- 移除所有 handleCardInput 翻譯更新回呼，之後在正面修改文字只會純存檔，絕不重啟聯網翻譯 -->
                     <textarea class="eng-text" oninput="saveCards()" onclick="event.stopPropagation()">${eng}</textarea>
                     <div class="card-actions">
                         <button class="btn-card btn-speak" onclick="speak(this); event.stopPropagation();">🔊 Speak</button>
@@ -115,7 +143,7 @@
                 </div>
                 <div class="card-back">
                     <div class="card-label">Chinese</div>
-                    <textarea class="ch-text" oninput="saveCards()" onclick="event.stopPropagation()" placeholder="點擊此處輸入中文翻譯...">${ch}</textarea>
+                    <textarea class="ch-text" oninput="saveCards()" onclick="event.stopPropagation()" placeholder="點擊手動修改中文...">${ch}</textarea>
                     <div class="card-actions"><button class="btn-card btn-delete" onclick="deleteCard(this); event.stopPropagation();">🗑️</button></div>
                 </div>
             </div>`;
@@ -136,11 +164,11 @@
         const data = Array.from(document.querySelectorAll('.card-container')).map(c => ({
             id: c.dataset.id, english: c.querySelector('.eng-text').value, chinese: c.querySelector('.ch-text').value
         }));
-        localStorage.setItem('myGitHubBingCards_v1', JSON.stringify(data));
+        localStorage.setItem('myGitHubInterlinkedCards_v1', JSON.stringify(data));
     }
 
     function loadCards() {
-        const data = JSON.parse(localStorage.getItem('myGitHubBingCards_v1') || '[]');
+        const data = JSON.parse(localStorage.getItem('myGitHubInterlinkedCards_v1') || '[]');
         document.getElementById('cardGrid').innerHTML = '';
         if (data.length > 0) {
             data.forEach(c => createCardDOM(c.id || 'c_'+Date.now(), c.english, c.chinese, false));
