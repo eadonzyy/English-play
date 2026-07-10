@@ -3,72 +3,294 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 自動翻譯英文單字卡</title>
+    <title>AI 自動翻譯英文單字卡 (全卡點擊翻頁版)</title>
     <style>
-        :root { --primary-color: #4f46e5; --success-color: #10b981; --danger-color: #ef4444; --card-bg: #ffffff; --text-main: #1e293b; }
-        body { font-family: system-ui, sans-serif; background-color: #f8fafc; padding: 20px; display: flex; justify-content: center; }
-        .container { width: 100%; max-width: 1000px; }
-        h2 { text-align: center; color: #0f172a; margin-bottom: 20px; }
-        .controls { display: flex; gap: 10px; margin-bottom: 25px; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-        .controls input { flex: 1; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; }
-        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
-        .btn-add { background-color: #4f46e5; color: white; }
-        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
-        .card-container { perspective: 1000px; }
-        .word-card { width: 100%; transition: transform 0.6s; transform-style: preserve-3d; position: relative; min-height: 130px; }
-        .card-container.flipped .word-card { transform: rotateY(180deg); }
-        .card-front, .card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 14px; padding: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); background: white; box-sizing: border-box; border-left: 5px solid; }
-        .card-front { border-left-color: #4f46e5; }
-        .card-back { border-left-color: #10b981; transform: rotateY(180deg); }
-        textarea { width: 100%; border: none; resize: none; outline: none; background: transparent; font-size: 1.1rem; height: 60px; }
-        .card-actions { display: flex; gap: 6px; margin-top: 10px; }
-        .btn-card { flex: 1; padding: 6px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; }
-        .btn-flip { background: #f1f5f9; }
-        .btn-delete { background: #fef2f2; color: #ef4444; }
+        :root { 
+            --primary-color: #4f46e5; 
+            --success-color: #10b981; 
+            --danger-color: #ef4444; 
+            --card-bg: #ffffff; 
+            --text-main: #1e293b; 
+        }
+        body { 
+            font-family: system-ui, -apple-system, sans-serif; 
+            background-color: #f8fafc; 
+            padding: 20px; 
+            display: flex; 
+            justify-content: center; 
+        }
+        .container { 
+            width: 100%; 
+            max-width: 1000px; 
+        }
+        h2 { 
+            text-align: center; 
+            color: #0f172a; 
+            margin-bottom: 20px; 
+        }
+        .controls { 
+            display: flex; 
+            gap: 10px; 
+            margin-bottom: 25px; 
+            background: white; 
+            padding: 12px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); 
+        }
+        .controls input { 
+            flex: 1; 
+            padding: 10px 16px; 
+            border: 2px solid #e2e8f0; 
+            border-radius: 8px; 
+            font-size: 15px;
+            outline: none;
+        }
+        .controls input:focus {
+            border-color: var(--primary-color);
+        }
+        .btn { 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-weight: 600; 
+        }
+        .btn-add { 
+            background-color: var(--primary-color); 
+            color: white; 
+        }
+        .card-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); 
+            gap: 20px; 
+        }
+        
+        /* 3D 翻牌與手勢設定 */
+        .card-container { 
+            perspective: 1000px; 
+            cursor: pointer; /* 讓滑鼠移上去時顯示手指，提示可點擊 */
+        }
+        .word-card { 
+            width: 100%; 
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); 
+            transform-style: preserve-3d; 
+            position: relative; 
+            min-height: 140px; 
+        }
+        .card-container.flipped .word-card { 
+            transform: rotateY(180deg); 
+        }
+        .card-front, .card-back { 
+            position: absolute; 
+            width: 100%; 
+            height: 100%; 
+            backface-visibility: hidden; 
+            border-radius: 14px; 
+            padding: 16px; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); 
+            background: white; 
+            box-sizing: border-box; 
+            border-left: 5px solid; 
+            display: flex;
+            flex-direction: column;
+        }
+        .card-front { 
+            border-left-color: var(--primary-color); 
+        }
+        .card-back { 
+            border-left-color: var(--success-color); 
+            transform: rotateY(180deg); 
+        }
+        
+        /* 標籤樣式 */
+        .card-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #94a3b8;
+            margin-bottom: 6px;
+            user-select: none;
+        }
+        
+        /* 文字框樣式 */
+        textarea { 
+            width: 100%; 
+            border: none; 
+            resize: none; 
+            outline: none; 
+            background: transparent; 
+            font-size: 1.1rem; 
+            font-weight: 600;
+            color: var(--text-main);
+            font-family: inherit;
+            flex: 1;
+        }
+        
+        /* 功能按鈕區 */
+        .card-actions { 
+            display: flex; 
+            gap: 6px; 
+            margin-top: auto; 
+        }
+        .btn-card { 
+            padding: 6px 10px; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 12px; 
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .btn-speak { 
+            background: #f0fdf4; 
+            color: var(--success-color); 
+        }
+        .btn-speak:hover { background: var(--success-color); color: white; }
+        
+        .btn-delete { 
+            background: #fef2f2; 
+            color: var(--danger-color); 
+            margin-left: auto; /* 讓刪除按鈕靠最右邊 */
+        }
+        .btn-delete:hover { background: var(--danger-color); color: white; }
     </style>
 </head>
 <body>
+
 <div class="container">
     <h2>🗂️ Smart English Flashcards</h2>
     <div class="controls">
-        <input type="text" id="engInput" placeholder="Enter English..." onkeypress="if(event.key==='Enter') addCardFromUI()">
+        <input type="text" id="engInput" placeholder="Enter English word..." onkeypress="if(event.key==='Enter') addCardFromUI()">
         <button class="btn btn-add" id="addBtn" onclick="addCardFromUI()">➕ Add</button>
     </div>
     <div id="cardGrid" class="card-grid"></div>
 </div>
+
 <script>
     window.onload = loadCards;
+
+    // UI 按鈕觸發智慧新增與自動翻譯
     async function addCardFromUI() {
-        const input = document.getElementById('engInput'), btn = document.getElementById('addBtn');
+        const input = document.getElementById('engInput');
+        const btn = document.getElementById('addBtn');
         const engText = input.value.trim();
+        
         if (!engText) return;
-        btn.disabled = true; btn.textContent = '⚡...';
-        let chText = '翻譯失敗';
+        
+        btn.disabled = true; 
+        btn.textContent = '⚡...';
+        
+        let chText = '翻譯中...';
         try {
-            const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(engText)}&langpair=en|zh-TW`);
+            const res = await fetch(`https://translated.net{encodeURIComponent(engText)}&langpair=en|zh-TW`);
             const data = await res.json();
-            if (data?.responseData) chText = data.responseData.translatedText;
-        } catch (e) { console.error(e); }
+            if (data?.responseData) {
+                chText = data.responseData.translatedText;
+            }
+        } catch (e) { 
+            chText = '翻譯失敗，請手動輸入';
+            console.error(e); 
+        }
+        
         createCardDOM(engText, chText);
-        input.value = ''; btn.disabled = false; btn.textContent = '➕ Add'; saveCards();
+        input.value = ''; 
+        btn.disabled = false; 
+        btn.textContent = '➕ Add'; 
+        saveCards();
     }
+
+    // 建立卡片元件 (加入點擊翻頁事件)
     function createCardDOM(eng, ch) {
-        const div = document.createElement('div');
-        div.className = 'card-container';
-        div.innerHTML = `<div class="word-card"><div class="card-front"><textarea class="eng-text">${eng}</textarea><div class="card-actions"><button class="btn-card btn-flip" onclick="this.closest('.card-container').classList.toggle('flipped')">🔄</button><button class="btn-card btn-delete" onclick="this.closest('.card-container').remove(); saveCards()">🗑️</button></div></div><div class="card-back"><textarea class="ch-text">${ch}</textarea><div class="card-actions"><button class="btn-card btn-flip" onclick="this.closest('.card-container').classList.toggle('flipped')">🔄</button></div></div></div>`;
-        document.getElementById('cardGrid').prepend(div);
+        const cardGrid = document.getElementById('cardGrid');
+        const container = document.createElement('div');
+        container.className = 'card-container';
+        
+        // 【核心修改】點擊卡片任何地方就切換 .flipped 類別來翻頁
+        container.onclick = function() {
+            this.classList.toggle('flipped');
+        };
+
+        container.innerHTML = `
+            <div class="word-card">
+                <!-- 正面：英文 -->
+                <div class="card-front">
+                    <div class="card-label">English</div>
+                    <!-- onclick="event.stopPropagation()" 防止點選文字框時誤觸翻頁 -->
+                    <textarea class="eng-text" oninput="saveCards()" onclick="event.stopPropagation()">${eng}</textarea>
+                    <div class="card-actions">
+                        <!-- 點擊功能按鈕時阻斷事件，防止翻頁 -->
+                        <button class="btn-card btn-speak" onclick="speakEnglish(this); event.stopPropagation();">🔊 Speak</button>
+                        <button class="btn-card btn-delete" onclick="deleteCard(this); event.stopPropagation();">🗑️</button>
+                    </div>
+                </div>
+                <!-- 背面：中文 -->
+                <div class="card-back">
+                    <div class="card-label">Chinese</div>
+                    <textarea class="ch-text" oninput="saveCards()" onclick="event.stopPropagation()">${ch}</textarea>
+                    <div class="card-actions">
+                        <button class="btn-card btn-delete" onclick="deleteCard(this); event.stopPropagation();">🗑️</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        // 新卡片加在最前面
+        cardGrid.prepend(container);
     }
+
+    // 刪除卡片
+    function deleteCard(button) {
+        button.closest('.card-container').remove();
+        saveCards();
+    }
+
+    // 英文發音功能
+    function speakEnglish(button) {
+        const container = button.closest('.card-container');
+        const text = container.querySelector('.eng-text').value.trim();
+        
+        if ('speechSynthesis' in window) {
+            if (text === '') return;
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+
+    // 儲存至 LocalStorage
     function saveCards() {
-        const cards = Array.from(document.querySelectorAll('.card-container')).map(c => ({
-            english: c.querySelector('.eng-text').value,
-            chinese: c.querySelector('.ch-text').value
-        }));
-        localStorage.setItem('cards', JSON.stringify(cards));
+        const containers = document.querySelectorAll('#cardGrid .card-container');
+        const cardData = [];
+        containers.forEach(c => {
+            cardData.push({
+                english: c.querySelector('.eng-text').value,
+                chinese: c.querySelector('.ch-text').value
+            });
+        });
+        localStorage.setItem('myAutoBilingualCards', JSON.stringify(cardData));
     }
+
+    // 載入歷史卡片
     function loadCards() {
-        const data = JSON.parse(localStorage.getItem('cards') || '[]');
-        data.forEach(c => createCardDOM(c.english, c.chinese));
+        const savedData = localStorage.getItem('myAutoBilingualCards');
+        const cardGrid = document.getElementById('cardGrid');
+        cardGrid.innerHTML = '';
+        
+        if (savedData) {
+            const cardData = JSON.parse(savedData);
+            if (cardData.length > 0) {
+                // 陣列反轉反向載入，確保順序與儲存時一致
+                cardData.reverse().forEach(c => createCardDOM(c.english, c.chinese));
+                return;
+            }
+        }
+        // 預設初始卡片
+        createCardDOM('Magnificent', '壯麗的、極好的');
+        createCardDOM('Practice makes perfect!', '熟能生巧！');
     }
 </script>
+
 </body>
 </html>
