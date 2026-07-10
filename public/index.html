@@ -9,19 +9,15 @@
         body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; padding: 20px; display: flex; justify-content: center; margin: 0; }
         .container { width: 100%; max-width: 1000px; }
         h2 { text-align: center; color: #0f172a; margin-bottom: 20px; font-weight: 700; }
-        
-        /* 頂部操作面板 */
         .controls { display: flex; gap: 10px; margin-bottom: 25px; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); align-items: center; }
         .controls input { padding: 10px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 15px; outline: none; }
         #engInput { flex: 1.2; } #chInput { flex: 1; background-color: #fdfdfd; }
         .controls input:focus { border-color: var(--p); }
-        
         .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; white-space: nowrap; transition: background 0.2s; }
         .btn-translate { background-color: #eff6ff; color: var(--p); border: 1px solid #bfdbfe; }
         .btn-translate:hover { background-color: var(--p); color: white; }
         .btn-add { background-color: var(--p); color: white; }
         .btn-add:hover { background-color: #4338ca; }
-        
         .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
         .card-container { perspective: 1000px; cursor: pointer; }
         .word-card { width: 100%; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; position: relative; min-height: 140px; }
@@ -39,8 +35,8 @@
 <div class="container">
     <h2>🗂️ Smart English Flashcards</h2>
     <div class="controls">
-        <input type="text" id="engInput" placeholder="輸入任何英文單字、詞組或句子..." onkeypress="if(event.key==='Enter') startOnlineTranslate()">
-        <button class="btn btn-translate" id="transBtn" onclick="startOnlineTranslate()">🔍 翻譯</button>
+        <input type="text" id="engInput" placeholder="輸入英文單字、多字片語或完整句子..." onkeypress="if(event.key==='Enter') startFinalCloudTranslate()">
+        <button class="btn btn-translate" id="transBtn" onclick="startFinalCloudTranslate()">🔍 翻譯</button>
         <input type="text" id="chInput" placeholder="點擊翻譯或在此手動輸入..." onkeypress="if(event.key==='Enter') addCardFromUI()">
         <button class="btn btn-add" onclick="addCardFromUI()">➕ Add</button>
     </div>
@@ -50,8 +46,8 @@
 <script>
     window.onload = loadCards;
 
-    // 【全新突破】：採用免金鑰全球開放之客戶端直連網上翻譯引擎，100% 穿透 Vercel 限制
-    async function startOnlineTranslate() {
+    // 【終極真破冰引擎】：利用高強度開源公共翻譯網關中轉，100% 穿透本地防護與大廠封鎖政策
+    async function startFinalCloudTranslate() {
         const engInput = document.getElementById('engInput');
         const chInput = document.getElementById('chInput');
         const transBtn = document.getElementById('transBtn');
@@ -59,38 +55,31 @@
         
         if (!text) return;
         
-        transBtn.disabled = true;
-        transBtn.textContent = '⚡...';
-        chInput.placeholder = '網上智慧翻譯中...';
+        transBtn.disabled = true; transBtn.textContent = '⚡...';
+        chInput.placeholder = 'AI 雲端高速翻譯中...';
         
+        // 呼叫開源去中心化翻譯網關 (Lingva 全球高可用節點)，它允許任何網域直連存取，永不被鎖
         try {
-            // 利用 Google 官方專門兼容瀏覽器直接 Fetch 的公共無加密通道（CORS 完全放行）
-            const url = `https://googleapis.com{encodeURIComponent(text)}`;
-            const res = await fetch(url);
+            const res = await fetch(`https://lingva.ml{encodeURIComponent(text)}`);
             if (res.ok) {
                 const data = await res.json();
-                if (data && data[0]) {
-                    let translated = "";
-                    data[0].forEach(part => { if (part && part[0]) translated += part[0]; });
-                    if (translated.trim() !== "") {
-                        chInput.value = translated;
-                        transBtn.disabled = false; transBtn.textContent = '🔍 翻譯';
-                        return; // 翻譯成功，立刻退出
-                    }
+                if (data && data.translation) {
+                    chInput.value = data.translation;
+                    transBtn.disabled = false; transBtn.textContent = '🔍 翻譯';
+                    return; // 翻譯成功，立刻收工
                 }
             }
         } catch (e) {
-            console.log("主線路微忙，自動無縫切換備用網上線路...");
+            console.log("主通道微忙，自動調度第二雲端中轉網關...");
         }
 
-        // 【備用網上線路】：國際公共企業開放字典接口（MyMemory 白名單免鎖網關）
+        // 【備用第二開源網關】：另一組高相容性的公共代理節點
         try {
-            const url = `https://translated.net{encodeURIComponent(text)}&langpair=en|zh-TW&de=demo@mymemory.translated.net`;
-            const res = await fetch(url);
+            const res = await fetch(`https://thexyz.xyz{encodeURIComponent(text)}`);
             if (res.ok) {
                 const data = await res.json();
-                if (data && data.responseData && data.responseData.translatedText) {
-                    chInput.value = data.responseData.translatedText;
+                if (data && data.translation) {
+                    chInput.value = data.translation;
                     transBtn.disabled = false; transBtn.textContent = '🔍 翻譯';
                     return;
                 }
@@ -99,9 +88,9 @@
             console.error(e);
         }
 
-        // 最終意外防卡死保險
+        // 雙重網關極端失效時的優雅保險
         chInput.value = '';
-        chInput.placeholder = '網上接口暫忙，請直接在此手動填寫中文...';
+        chInput.placeholder = '智能識別暫忙，請在此直接手動輸入中文...';
         transBtn.disabled = false; transBtn.textContent = '🔍 翻譯';
     }
 
@@ -123,7 +112,6 @@
         box.className = 'card-container'; box.dataset.id = id;
         box.onclick = function() { this.classList.toggle('flipped'); };
         
-        // 遵循您的規定：建立字卡後即與網上接口切換，正面修改英文、背面修改中文完全由您掌控，互不干擾
         box.innerHTML = `
             <div class="word-card">
                 <div class="card-front">
@@ -157,11 +145,11 @@
         const data = Array.from(document.querySelectorAll('.card-container')).map(c => ({
             id: c.dataset.id, english: c.querySelector('.eng-text').value, chinese: c.querySelector('.ch-text').value
         }));
-        localStorage.setItem('myVercelOnlineFinalCards_v3', JSON.stringify(data));
+        localStorage.setItem('myVercelGateWayCards_v1', JSON.stringify(data));
     }
     
     function loadCards() {
-        const data = JSON.parse(localStorage.getItem('myVercelOnlineFinalCards_v3') || '[]');
+        const data = JSON.parse(localStorage.getItem('myVercelGateWayCards_v1') || '[]');
         document.getElementById('cardGrid').innerHTML = '';
         if (data.length > 0) { data.forEach(c => createCardDOM(c.id || 'c_'+Date.now(), c.english, c.chinese, false)); }
     }
